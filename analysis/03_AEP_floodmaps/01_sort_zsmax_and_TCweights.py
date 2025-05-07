@@ -33,7 +33,11 @@ def sort_data(data: xr.DataArray) -> [xr.DataArray, xr.DataArray]:
     return sorted_data
 
 
+'''
 
+HISTORIC SET
+
+'''
 # Lazily load the zsmax data for all storms
 os.chdir(r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\04_RESULTS\ncep')
 file_paths = [file for file in os.listdir() if ('zsmax' in file) & (file.endswith('.nc'))]
@@ -133,60 +137,3 @@ for scenario in ['compound','coastal','runoff']:
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Sorting time: {np.round(elapsed_time) / 60} minutes")
-
-# # Sort storm_weights by tc_id and align with data tc_id
-# storm_weights_sorted = storm_weights.set_index('tc_id').reindex(data.tc_id.values).sort_index()
-#
-# # Assign weight coordinates to the data
-# data = data.assign_coords(weight=('tc_id', storm_weights_sorted['weight']))
-# Mask the data for the basin and drop the rest
-# data = data.where(mask, drop=True)
-#
-# # Create arrays to store the sorted water level, storm ids and weights
-# sorted_data = da.empty_like(data, dtype=data.dtype)
-# sorted_storm_ids = da.empty_like(data, dtype=np.float32)
-# sorted_weights = da.empty_like(data, dtype=np.int32)
-#
-# #Iterate over the x, y locations cause nothing else works
-# counter_x = 0
-# for x in range(data.x.shape[0]):
-#     counter_y = 0
-#     for y in range(data.y.shape[0]):
-#         # Extract the water levels and corresponding storm ids for the given (x, y) cell
-#         data_wl = data[:, y, x].to_dataframe()
-#         sorted_wl = data_wl.sort_values(by=scenario, axis=0, na_position='first')
-#
-#         # Store sorted values
-#         sorted_data[:, y, x] = np.array(sorted_wl[scenario].values)
-#         sorted_storm_ids[:, y, x] = np.array(sorted_wl.index)
-#         sorted_weights[:, y, x] = np.array(sorted_wl['weight'].values)
-#
-#         print(f'{counter_y}/{len(data.y)} in the y dim for {counter_x}/{len(data.x)}')
-#         counter_y += 1
-#
-#     counter_x += 1
-#
-# print(f'Writing out data to netcdfs...')
-# sorted_data2 = sorted_data.compute()
-# sorted_data_da = xr.DataArray(
-#     sorted_data2,
-#     dims=['tc_id', 'y', 'x'],
-#     coords={'tc_id': data.tc_id.values, 'y': data.y.values, 'x': data.x.values,
-#             'spatial_ref':data['spatial_ref']})
-# sorted_data_da.to_netcdf(f'sorted_data_{scenario}.nc')
-#
-# sorted_storm_ids2 = sorted_storm_ids.compute()
-# sorted_storm_ids_da = xr.DataArray(
-#     sorted_storm_ids2,
-#     dims=['tc_id', 'y', 'x'],
-#     coords={'tc_id': data.tc_id.values, 'y': data.y.values, 'x': data.x.values,
-#             'spatial_ref':data['spatial_ref']})
-# sorted_storm_ids_da.to_netcdf(f'sorted_storm_ids_{scenario}.nc')
-#
-# sorted_weights2 = sorted_weights.compute()
-# sorted_weights_da = xr.DataArray(
-#     sorted_weights2,
-#     dims=['tc_id', 'y', 'x'],
-#     coords={'tc_id': data.tc_id.values, 'y': data.y.values, 'x': data.x.values,
-#             'spatial_ref':data['spatial_ref']})
-# sorted_weights_da.to_netcdf(f'sorted_weights_{scenario}.nc')

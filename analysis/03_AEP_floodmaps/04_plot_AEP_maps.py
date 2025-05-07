@@ -1,4 +1,3 @@
-import os
 import xarray as xr
 import pandas as pd
 import sys
@@ -8,20 +7,19 @@ import hydromt
 import os
 import numpy as np
 from matplotlib.colors import LogNorm
-import seaborn as sns
 import cartopy.crs as ccrs
-from src.utils import  classify_zsmax_by_process, calculate_flooded_area_by_process
 from matplotlib.colors import ListedColormap
-
 from hydromt_sfincs import SfincsModel
 sys.path.append(r'/')
 mpl.use('TkAgg')
 plt.ion()
 
+wdir = r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\04_MODEL_OUTPUTS'
+os.chdir(wdir)
 
 '''' Load in the data '''
 # Load the water level data for the historical return periods
-histdir = r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\04_RESULTS\ncep\aep'
+histdir = r'.\ncep\aep'
 file_paths = [os.path.join(histdir, file) for file in os.listdir(histdir) if ('returnPeriods' in file) & (file.endswith('.nc'))]
 scenarios = [file.split('_')[-1].split('.')[0] for file in os.listdir(histdir) if ('returnPeriods' in file) & (file.endswith('.nc'))]
 da_list = [xr.open_dataarray(file, engine='netcdf4') for file in file_paths]
@@ -29,35 +27,31 @@ h_aep = xr.concat(objs=da_list, dim='scenario')
 h_aep['scenario'] = xr.IndexVariable(dims='scenario', data=scenarios)
 
 # Load the water level data for the projected return periods
-projdir = r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\04_RESULTS\canesm_ssp585\aep'
+projdir = r'.\canesm_ssp585\aep'
 file_paths = [os.path.join(projdir, file) for file in os.listdir(projdir) if ('returnPeriods' in file) & (file.endswith('.nc'))]
 da_list = [xr.open_dataarray(file, engine='netcdf4') for file in file_paths]
 p_aep = xr.concat(objs=da_list, dim='scenario')
 p_aep['scenario'] = xr.IndexVariable(dims='scenario', data=scenarios)
 
 # Load model data/DEM
-yml_base = r'Z:\Data-Expansion\users\lelise\data\data_catalog_BASE_Carolinas.yml'
-base_root = r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\03_MODEL\sfincs_initcond_mod'
-mod = SfincsModel(root=base_root, mode='r', data_libs=yml_base)
-dem = mod.grid['dep']
+data_catalog_yml = r'Z:\Data-Expansion\users\lelise\data\data_catalog_BASE_Carolinas.yml'
+cat = hydromt.DataCatalog(data_libs=[data_catalog_yml])
+root = r'..\03_MODEL_RUNS\sfincs_initcond_mod'
+mod = SfincsModel(root, data_libs=data_catalog_yml, mode='r')
 
-# Load layers - run once because it takes a while...
-coastal_wb = mod.data_catalog.get_geodataframe('carolinas_coastal_wb')
-coastal_wb = coastal_wb.to_crs(mod.crs)
-coastal_wb_clip = coastal_wb.clip(mod.region)
-
-major_rivers = mod.data_catalog.get_geodataframe('carolinas_nhd_area_rivers')
-major_rivers = major_rivers.to_crs(mod.crs)
-major_rivers_clip = major_rivers.clip(mod.region)
-
-nc_major_rivers = mod.data_catalog.get_geodataframe('carolinas_major_rivers')
-nc_major_rivers = nc_major_rivers.to_crs(mod.crs)
-nc_major_rivers_clip = nc_major_rivers.clip(mod.region)
-
+# Data specifics
+chunks_size = {'x': 5000, 'y': 5000}
+res = 200
+hmin = 0.05
+elevation_file = rf'../03_MODEL_RUNS/subgrid/dep_subgrid_{res}m.tif'
+dem = cat.get_rasterdataset(elevation_file, chunks=chunks_size)
+water_mask = rf'./masks/water_mask_sbgRes{res}m.tif'
+wb_mask = cat.get_rasterdataset(water_mask, chunks=chunks_size)
+wb_mask.rio.write_crs(32617, inplace=True)
 
 # Plotting details
-wkt = mod.grid['dep'].raster.crs.to_wkt()
-utm_zone = mod.grid['dep'].raster.crs.to_wkt().split("UTM zone ")[1][:3]
+wkt = dem.raster.crs.to_wkt()
+utm_zone = dem.raster.crs.to_wkt().split("UTM zone ")[1][:3]
 utm = ccrs.UTM(int(utm_zone[:2]), "S" in utm_zone)
 font = {'family': 'Arial', 'size': 10}
 mpl.rc('font', **font)
@@ -73,36 +67,27 @@ for T in sel_rp:
     h = h_aep.sel(scenario='compound', return_period=T)
     h_depth = (h - dem).compute()
     h_depth = h_depth.where(h_depth > 0.05)
-    hname = f'hist_depth_{T}'
-    hda = xr.DataArray(h_depth, name=hname)
-    hdf = pd.DataFrame(hda.to_dataframe()[hname].describe(percentiles=[0.25, 0.5, 0.75, 0.9, 0.95]), columns=[hname])
 
     p = p_aep.sel(scenario='compound', return_period=T)
     p_depth = (p - dem).compute()
     p_depth = p_depth.where(p_depth > 0.05)
-    pname = f'fut_depth_{T}'
-    pda = xr.DataArray(p_depth, name=pname)
-    pdf = pd.DataFrame(pda.to_dataframe()[pname].describe(percentiles=[0.25, 0.5, 0.75, 0.9, 0.95]), columns=[pname])
 
     diff = (p_depth - h_depth).compute()
     name = f'diff_depth_{T}'
-    da = xr.DataArray(diff, name=name)
-    df = pd.DataFrame(da.to_dataframe()[name].describe(percentiles=[0.25, 0.5, 0.75, 0.9, 0.95]), columns=[name])
 
-    df_combined_ids = df_combined_ids + [hname, pname, name]
-    df_combined = pd.concat(objs=[df_combined, hdf, pdf, df], axis=1, ignore_index=True)
+    mask = (wb_mask != 1)
+    diff = diff.where(mask).compute()
+    diff = diff.where(diff > 0.05).compute()
 
     d_plot = d_plot + [h_depth, p_depth, diff]
-df_combined.columns = df_combined_ids
-# df_combined.to_csv(r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\04_RESULTS\aep_depth_diff_stats.csv' )
 
 
-plot_AEP_depth_climate_comparsion = False
+outdir = r'.\05_ANALYSIS\aep'
+plot_AEP_depth_climate_comparsion = True
 if plot_AEP_depth_climate_comparsion is True:
     # Plotting
-    os.chdir(r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\04_RESULTS\figures')
     rp = (1/ np.array(sel_rp))*100
-    scenarios = ['Historic (1980-2005)', 'Projected (2070-2100)', 'Difference']
+    scenarios = ['Historic (1980-2005)', 'Projected (2070-2100)', 'Overland Depth\nDifference']
     nrow = len(rp)
     ncol = len(scenarios)
     n_subplots = nrow * ncol
@@ -117,8 +102,11 @@ if plot_AEP_depth_climate_comparsion is True:
         ax = axes[i]
         data = d_plot[i]
         if i in last_in_row:
-            ckwargs = dict(cmap='seismic', vmin=-1, vmax=1)
+            ckwargs = dict(cmap='Reds', vmin=0.05, vmax=1.5)
             cs2 = data.plot(ax=ax, add_colorbar=False, **ckwargs, zorder=1)
+            ckwargs = dict(cmap='Greys_r', vmin=1, vmax=1)
+            mask = wb_mask.where(wb_mask == 1)
+            mask.plot(ax=ax, add_colorbar=False, zorder=2, **ckwargs)
         else:
             ckwargs = dict(cmap='Blues', vmin=0.05, vmax=6)
             cs = data.plot(ax=ax, add_colorbar=False, **ckwargs, zorder=1)
@@ -157,12 +145,13 @@ if plot_AEP_depth_climate_comparsion is True:
                          cax=cax,
                          orientation='vertical',
                          label=label,
-                         #ticks=[0, 0.5, 1, 1.5],
-                         extend='both')
+                         ticks=[0.05, 0.5, 1, 1.5],
+                         extend='max'
+                         )
 
     plt.subplots_adjust(wspace=0.0, hspace=0)
     plt.margins(x=0, y=0)
-    plt.savefig(r'aep_flood_depths_historic_projected_difference.jpg', bbox_inches='tight', dpi=300)
+    plt.savefig(rf'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\05_ANALYSIS\aep\aep_flood_depths_historic_projected_difference.jpg', bbox_inches='tight', dpi=300)
     plt.close()
 
 
