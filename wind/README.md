@@ -1,179 +1,39 @@
-# Tropical Cyclone Selection and Forcing Preparation for Hydrodynamic Modeling
+# Synthetic TC Wind Fields 
+Overview XYZ
+MIT model (cite)
 
-This repository contains workflows used to **identify relevant tropical
-cyclones (TCs)** and **prepare gridded TC forcing data** for hydrodynamic
-modeling applications such as **ADCIRC** and **SFINCS**.
-
-The analyses support storm-based assessments using:
-- Historical tropical cyclones from **NCEP reanalysis**
-- Synthetic tropical cyclones derived from **CMIP6 SSP5-8.5 projections**
-
+## Data Requirements
+1. **Track files** (MAT-files) containing TC information:
+   - Variables: `lat100`, `lon100`, `vstore100`, `pstore100`, `rmw100`, `ro100`, `uinc100`, `vinc100`
+   - Location: `.\tracks\UScoast6_AL_<GCM>cal_roEst1rmEst1_trk100`
+2. coastline_lores.csv
+3. Model domain??
 ---
-
-## Repository Purpose
-
-This repository integrates two complementary components of storm-based modeling:
-
-1. **Tropical cyclone selection**
-   - Identify storms that pass near a point of interest
-   - Cross-reference selected storms with available ADCIRC simulations
-
-2. **Synthetic TC forcing preparation**
-   - Process gridded synthetic TC data from CMIP6 models
-   - Assign correct time coordinates and spatial metadata
-   - Output standardized NetCDF files for hydrodynamic models
-
-Together, these workflows provide a transparent and reproducible pathway from
-storm identification to model-ready forcing data.
-
+## TC Track Information
+These scripts return the TC storm characteristics near landfall. First, the code clips all the intersecting tracks to a specified area (buffered of the SFINCS model domain). Of the portions of the track remaining, the code calculates the distance between the center of the TC tracks (updated every 2-hours) to the modeled ADCIRC storm surge locations which are offshore (<1km off the coastline). The gage that has the minimum distance to the TC center is selected as the nearest landfall gage and the TC characteristics at this timestep are returned (max wind speed, radius to max wind, minimum pressure, etc.). This information is used in downstream analysis.
+### Scripts
+- **tracks_select_by_point.py**
+  - Usage:
+  - Output:
+  - Configuration:
+- **tracks_select_by_polygon.py**
+  - Usage:
+  - Output:
+  - Configuration:
+- **calculate_landfall_vmax.py**
+  - Usage: this script returns the max wind speeds at landfall for the select TCs
+  - Output:
+  - Configuration:
+- **tc_track_info_to_table.py**
+  - Usage: this script returns all TC info from the tracks dataset at landfall for the select TCs
+  - Output:
+  - Configuration:
+- **storm_durations_table.py**
+  - Usage: this script estimates the duration of the TC over the model domain to estimate approximately how long the SFINCS model runs would be to estimate simulation time.
+  - Output:
+  - Configuration:
 ---
+## Bias Correcting Intensity Distributions
+This folder has scripts to bias correct the TC intensity at landfall. GCM TC outputs need to be bias-corrected because they over/under predict the TC intensity (vamx) distribution when compared to historical storms. This is done using delta-quantile mapping which essentially provides "TC weights" that are used to shift the CDF when calculating probabilities. The scripts to do this are in this folder.
 
-## Workflow Overview
 
-### 1. Tropical Cyclone Selection (NCEP Reanalysis)
-
-**Purpose**  
-Identify tropical cyclones whose tracks pass within a specified distance of an
-ADCIRC gage location.
-
-**Key features**
-- Uses NCEP reanalysis TC tracks
-- Selects storms within a configurable distance threshold (default: 200 km)
-- Matches selected storms with available ADCIRC water level simulations
-
-**Primary inputs**
-- ADCIRC gage locations (`coastline_lores.mat`)
-- TC track data (`UScoast6_AL_ncep_reanal_*_trk100.mat`)
-- ADCIRC water level metadata (`ncep_reanal_WLseries.mat`)
-
-**Outputs**
-- Storm indices within the distance threshold
-- Storms common to both track proximity and ADCIRC simulations
-
----
-
-### 2. Synthetic TC Forcing Preparation (CMIP6 SSP5-8.5)
-
-**Purpose**  
-Convert synthetic TC gridded data into standardized NetCDF files suitable for
-hydrodynamic modeling.
-
-**Key features**
-- Processes multiple CMIP6 GCMs under SSP5-8.5
-- Associates gridded TC fields with storm track metadata
-- Assigns correct datetime coordinates
-- Writes CRS-aware NetCDF outputs
-
-**CMIP6 models included**
-- `canesm_ssp585cal`
-- `cnrm6_ssp585cal`
-- `ecearth6_ssp585cal`
-- `ipsl6_ssp585cal`
-- `miroc6_ssp585cal`
-
-**Outputs**
-- NetCDF files with corrected time coordinates and geographic metadata
-
----
-
-## Repository Structure (Example)
-
-```
-.
-├── storm_selection/
-│   ├── select_tc_near_gage.m
-│   └── README.md
-│
-├── synthetic_tc_processing/
-│   ├── tc_data_to_netcdf.py
-│   └── README.md
-│
-├── src/
-│   ├── utils.py
-│   └── core.py
-│
-└── README.md
-```
-
----
-
-## Dependencies
-
-### MATLAB
-- MATLAB (recent versions)
-- `m_lldist_L.m` for great-circle distance calculations
-
-### Python
-- Python ≥ 3.8
-- `xarray`
-- `scipy`
-- `matplotlib`
-- `rioxarray`
-- Custom modules:
-  - `src.utils`
-  - `src.core`
-
----
-
-## Reproducibility
-
-All scripts in this repository are deterministic given the same input data and
-software environment.
-
-To reproduce the workflows:
-1. Obtain the required input datasets listed in the **Data Availability**
-   section.
-2. Ensure directory paths in the scripts are updated to match your local or
-   system environment.
-3. Run the storm selection workflow prior to downstream hydrodynamic analyses.
-4. Run the synthetic TC processing workflow to generate model-ready NetCDF
-   forcing files.
-
-No random number generation or stochastic parameterization is performed within
-this repository.
-
----
-
-## Data Availability
-
-Due to data volume and licensing constraints, **input datasets are not included
-in this repository**.
-
-### External Data Sources
-
-- **NCEP Reanalysis Tropical Cyclone Tracks**  
-  Publicly available from NOAA-affiliated data portals.
-
-- **ADCIRC Storm Tide Simulations**  
-  Generated using licensed or institution-specific ADCIRC configurations.
-  Availability may depend on institutional access.
-
-- **CMIP6 Synthetic Tropical Cyclones (SSP5-8.5)**  
-  Derived from CMIP6 climate model output. Access may require:
-  - Registration with ESGF nodes
-  - Institutional storage resources
-
-Processed NetCDF outputs generated by these workflows may be shared subject to
-the terms of the original data providers.
-
----
-
-## Notes
-
-- Distance thresholds and spatial reference points are configurable and
-  study-dependent.
-- Storm indexing assumes consistency across TC track data and simulation
-  metadata.
-- This repository focuses on **storm selection and data preparation**; model
-  execution and impact analysis are performed externally.
-
----
-
-## Citation and Context
-
-Developed for Chapter 3 analysis of tropical cyclone impacts using NCEP
-reanalysis and CMIP6 SSP5-8.5 synthetic storms in support of ADCIRC and SFINCS
-modeling for the Carolinas.
-
-If you use this workflow in published work, please cite the relevant data
-sources and modeling frameworks accordingly.
