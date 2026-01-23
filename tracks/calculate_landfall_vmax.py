@@ -12,75 +12,66 @@ from hydromt_sfincs import SfincsModel
 
 
 """
-This script estimates approximate tropical cyclone (TC) landfall characteristics
-(time and maximum wind speed) for both:
+This script estimates tropical cyclone (TC) characteristics near landfall using track data.
 
-1. Synthetic CMIP6 tropical cyclones, and
-2. Historical NCEP reanalysis tropical cyclones.
+Inputs: 
+- TC track files (.mat)
+- ADCIRC storm surge gage locations x,y (.csv)
+- SFINCS model domain (geopandas dataframe extracted from SFINCS model OR read in as a shapefile)
 
-Landfall is approximated based on proximity to ADCIRC gage locations and
-intersection with the SFINCS model domain. Results are saved as CSV files
-for downstream analysis (e.g., wind-speed bias correction or scenario design).
+Outputs:
+TC track landfall max wind speed (vmax) are saved in a table for each synthetic TC (TC_ID) 
+and output as a CSV file for downstream analysis (e.g., bias correction). 
+Note, landfall is approximated:
+ - we clip the tracks to a buffered polygon of the domain (user defined)
+ - we calculate the distance from the ADCIRC points to the TC track center (lat,lon)
+ - we return the TC track info for the center that is closest to one of the ADCIRC points
 
----------------------------
-Important Assumptions / Flags
----------------------------
-- The SFINCS domain is buffered by 1.8 degrees for landfall detection.
-  This expands the effective area used to detect landfall, but is not a precise
-  coastline-based measure.
-- In the CMIP6 processing loop, there is a `break` statement after the first TC.
-  This is likely for testing/debugging purposes and currently limits processing
-  to one TC per file.
-- Landfall is proxy-based: we detect when a TC comes within proximity of
-  ADCIRC gages inside the buffered model domain. This is not a physical landfall
-  (coastline intersection) but an operational definition useful for surge/wind
-  impact studies.
+Assumptions / Flags:
+- The SFINCS domain is buffered by 1.8 degrees for landfall detection, but is not a precise coastline-based measure.
 - Some TCs may fail the landfall detection step (logged in `issue_tcs`).
+
 """
 
 # -------------------------------------------------------------------------
 # Load SFINCS model domain and define analysis region
 # -------------------------------------------------------------------------
-mod = SfincsModel(
-    root=r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\03_MODEL_RUNS\sfincs_base_mod',
-    mode='r'
-)
-# Convert model region to geographic coordinates and buffer by 1.8 degrees
-region = mod.region.to_crs(4326).buffer(1.8)  # FLAG: buffered domain, not exact coastline
+wdir = r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs'
+os.chdir(wdir)
+
+# Load the SFINCS model (to get the region)
+mod = SfincsModel(root=r'.\03_MODEL_RUNS\sfincs_base_mod',mode='r')
+
+# Convert model region to geographic coordinates and buffer
+buffer_range_deg = 1.8
+region = mod.region.to_crs(4326).buffer(buffer_range_deg)
 
 # -------------------------------------------------------------------------
-# Load ADCIRC gage locations used for landfall estimation
+# Load ADCIRC storm surge gage locations (x,y) used for landfall estimation
 # -------------------------------------------------------------------------
-gage_locs = pd.read_csv(
-    r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs'
-    r'\02_DATA\NCEP_Reanalysis\stormTide\coastline_lores_NCSC.csv'
-)
+gage_locs = pd.read_csv(r'.\02_DATA\NCEP_Reanalysis\stormTide\coastline_lores_NCSC.csv')
 
 # -------------------------------------------------------------------------
-# Process CMIP6 synthetic TC tracks
+# Process synthetic TC tracks
 # -------------------------------------------------------------------------
-os.chdir(
-    r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS'
-    r'\Chapter3_SyntheticTCs\02_DATA\CMIP6_245\tracks'
-)
+# Update the directory depending on where the track files are stored (.mat)
+climate_scenario = 'CMIP6_585' # or CMIP6_585
+tc_dir = os.path.join(os.getcwd(), '02_DATA',f'{climate_scenario}')
 
-for file in os.listdir(os.getcwd()):
+for file in os.listdir(os.path.join(tc_dir,'tracks')):
 
     if file.endswith('.mat'):
         print(file)
-
-        # Load TC track data
-        tc_tracks = sio.loadmat(file)
-
         # Parse GCM and scenario from filename
         gcm = file.split('_')[2]
         ssp = file.split('_')[3].removesuffix('cal')
 
-        # Load TC IDs modeled in ADCIRC
-        modeled_tcs = pd.read_csv(
-            fr'../stormTide/gage_peaks_{gcm}_{ssp}.csv',
-            index_col=0
-        )
+        # Load TC track data for the different GCM ensembles for the selected climate scenario
+        filepath = os.path.join(tc_dir,'tracks', file)
+        tc_tracks = sio.loadmat(filepath)
+
+        # Load TC IDs modeled in ADCIRC (./stormTide/stormTide_process_adcircWL.py)
+        modeled_tcs = pd.read_csv(os.path.join(os.getcwd(), tc_dir, 'stormTide',rf'gage_peaks_{gcm}_{ssp}.csv'),index_col=0)
         modeled_tcs['tc_id'] = modeled_tcs.index.tolist()
         tc_ids = modeled_tcs['tc_id'].tolist()
 
@@ -108,10 +99,8 @@ for file in os.listdir(os.getcwd()):
             print(f'{counter} out of {tot}')
             counter += 1
 
-            break  # FLAG: stops after one TC, for debugging/testing
-
         out = landfall_df[['tc_id', 'vstore100']]
-        out.to_csv(fr'{gcm}_{ssp}_landfall_vmax.csv')
+        out.to_csv(os.path.join(tc_dir, fr'{gcm}_{ssp}_landfall_vmax.csv'))
 
 # -------------------------------------------------------------------------
 # Process NCEP reanalysis tropical cyclones
@@ -120,7 +109,7 @@ os.chdir(
     r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS'
     r'\Chapter3_SyntheticTCs\02_DATA\NCEP_Reanalysis\tracks'
 )
-
+# There is just one track file for the reanalysis
 matfile = 'UScoast6_AL_ncep_reanal_roEst1rmEst1_trk100.mat'
 tc_tracks = sio.loadmat(matfile)
 
@@ -161,31 +150,4 @@ for tc_id in tc_ids:
     counter += 1
 
 out = landfall_df
-out.to_csv('ncep_landfall_vmax_v2.csv')
-
-# -------------------------------------------------------------------------
-# METHODS PARAGRAPH (for documentation/publication)
-# -------------------------------------------------------------------------
-"""
-Landfall Definition:
-
-Landfall is operationally defined as the first instance when a tropical cyclone
-approaches or intersects the buffered SFINCS model domain within proximity
-of ADCIRC gage locations. Specifically:
-
-1. The SFINCS domain is projected to geographic coordinates (EPSG:4326) and
-   buffered by 1.8 degrees (~200 km) to account for model resolution and
-   potential storm track uncertainties.
-
-2. ADCIRC gage locations serve as reference points to identify coastal impact.
-
-3. TC track data are filtered for valid timestamps and wind speeds
-   (vstore100 or vt100 > 0).
-
-4. Landfall time and maximum wind speed are extracted using a spatial overlay
-   between the buffered domain, gage locations, and TC tracks.
-
-This proxy-based definition provides a practical estimate of landfall for
-hydrodynamic modeling (storm surge, flooding, wind) but does not necessarily
-correspond to the exact point where the storm center crosses the coastline.
-"""
+out.to_csv('ncep_landfall_vmax.csv')

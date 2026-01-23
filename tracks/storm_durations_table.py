@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import scipy.io as sio
-from src.utils import *
+from src.utils import get_track_info_in_df
 
 import os
 import pandas as pd
@@ -8,49 +8,50 @@ import numpy as np
 
 
 """
-This script analyzes the temporal characteristics of selected synthetic
-tropical cyclones (TCs) from a CMIP6 GCM (CanESM, SSP5-8.5).
+This script analyzes the temporal characteristics of selected synthetic tropical cyclones (TCs) 
 
 Specifically, it:
-1. Extracts start and end times for each selected TC.
-2. Computes storm durations.
-3. Visualizes the distribution of TC durations.
-4. Estimates computational cost for compound hydrodynamic simulations
-   based on storm duration.
+    Extracts start and end times for each selected TC to a table to compute storm durations.
+    We then visualize the distribution of TC durations using a histogram and
+    estimate avg computational cost for hydrodynamic simulations.
 """
 
 # -------------------------------------------------------------------------
 # Set working directory and define track data location
 # -------------------------------------------------------------------------
+climate_scenario = 'CMIP6_585'
 os.chdir(
-    r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\02_DATA\CMIP6_585'
+    rf'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\02_DATA\{climate_scenario}'
 )
 
 track_dir = os.path.join(os.getcwd(), 'tracks')
 
 # -------------------------------------------------------------------------
-# Load synthetic TC track data (CanESM, SSP5-8.5)
+# Load synthetic TC track data
 # -------------------------------------------------------------------------
+# Here we focus on a single emission scenario (SSP5-8.5) and GCM member (CanESM)
+gcm_ensemble = 'canesm'
+ssp = 'ssp585'
 track_file = os.path.join(
     track_dir,
-    'UScoast6_AL_canesm_ssp585cal_roEst1rmEst1_trk100'
+    f'UScoast6_AL_{gcm_ensemble}_{ssp}cal_roEst1rmEst1_trk100'
 )
 tc_tracks = sio.loadmat(f'{track_file}.mat')
 
 # -------------------------------------------------------------------------
 # Load ADCIRC-modeled peak water levels and extract TC IDs
 # -------------------------------------------------------------------------
-# Each row corresponds to a TC that was modeled in ADCIRC
+# Each row corresponds to a TC that was modeled in ADCIRC and includes the storm surge peaks for each TC
 gage_peaks = pd.read_csv(
-    r'.\stormTide\gage_peaks_canesm_ssp585.csv',
+    fr'.\stormTide\gage_peaks_{gcm_ensemble}_{ssp}.csv',
     index_col=0
 )
 
-# TC IDs used for analysis
+# Get the TC IDs used for analysis
 selected_tcs = gage_peaks.index.tolist()
 
 # -------------------------------------------------------------------------
-# Extract start and end times for each TC
+# Extract start and end times for each TC from the track file (.mat)
 # -------------------------------------------------------------------------
 tc_time_info = pd.DataFrame(
     index=selected_tcs,
@@ -74,7 +75,7 @@ print(tc_time_info['tstart'].min())
 print(tc_time_info['tstart'].max())
 
 # -------------------------------------------------------------------------
-# Compute storm durations
+# Compute TC durations
 # -------------------------------------------------------------------------
 tc_time_info['duration'] = (
     tc_time_info['tend'] - tc_time_info['tstart']

@@ -5,12 +5,22 @@ from src.utils import get_track_info_in_df, get_landfall_info, get_track_datetim
 from hydromt_sfincs import SfincsModel
 
 """
-This script estimates approximate landfall times and wind speeds for a set
-of tropical cyclones (TCs) from CMIP6 synthetic tracks using a buffered SFINCS
-model domain and ADCIRC gage locations.
 
-Landfall is operationally defined as the intersection of the TC track with a
-buffered domain around the model area in proximity to ADCIRC gages. 
+This script saves the TC charactersistics (vmax, pstore, etc.) at /near landfall. 
+It uses the same matching approach as calculate_landfall_vmax.py but saves more info to the table.
+
+Inputs:
+- TC tracks (.mat)
+- ADCIRC storm surge gage locations (x,y) as a CSV
+
+Outputs:
+- CSV of the landfall TC characteristics 
+
+Note, landfall is approximated:
+ - we clip the tracks to a buffered polygon of the domain (user defined)
+ - we calculate the distance from the ADCIRC points to the TC track center (lat,lon)
+ - we return the TC track info for the center that is closest to one of the ADCIRC points
+
 """
 
 # -------------------------------------------------------------------------
@@ -25,6 +35,7 @@ mod = SfincsModel(root=r'.\03_MODEL_RUNS\sfincs_base_mod', mode='r')
 
 # Convert the model domain to geographic coordinates and buffer it by 5 degrees
 # FLAG: Buffer is large (~500 km) and may overestimate the area for landfall detection
+
 region = mod.region.to_crs(4326).buffer(5)
 
 # -------------------------------------------------------------------------
@@ -106,34 +117,4 @@ landfall_info_df.to_csv(
     r'\02_DATA\CMIP6_585\tracks\canesm_landfall_track_info.csv'
 )
 
-# -------------------------------------------------------------------------
-# FLAGS / NOTES
-# -------------------------------------------------------------------------
-# 1. The region buffer of 5 degrees is very large and may overestimate landfall.
-# 2. Landfall is detected based on proximity to gages and the buffered domain,
-#    not exact coastline intersection.
-# 3. The 'break' in the loop stops processing on the first TC that causes an error.
-#    For production runs, this should be removed to process all TCs.
-# 4. Zero wind points are excluded before landfall detection.
-# 5. Results are saved to CSV for downstream analysis.
-# -------------------------------------------------------------------------
 
-# -------------------------------------------------------------------------
-# METHODS PARAGRAPH (for documentation/publication)
-# -------------------------------------------------------------------------
-"""
-Landfall Definition and Methods:
-
-Landfall is operationally defined as the first instance when a tropical cyclone 
-track intersects a buffered SFINCS model domain and comes within proximity to 
-ADCIRC gage locations. 
-
-Steps:
-1. TC tracks are filtered to remove zero wind-speed points.
-2. Tracks are clipped to a 5-degree buffered SFINCS domain to focus on coastal impacts.
-3. ADCIRC gages are used as reference points to estimate landfall location.
-4. The time of landfall and maximum wind speed at landfall (vstore100 or vt100) 
-   are extracted for each TC.
-5. Results are saved to CSV for further analysis such as wind-speed statistics, 
-   storm surge modeling, or bias correction.
-"""
