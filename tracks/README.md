@@ -1,10 +1,9 @@
 # Synthetic TC Tracks 
 
 ## Data Requirements
-1. Gori et al. 2022 TC Dataset
-   - **Track files** (MAT-files) containing TC information (`lat100`, `lon100`, `vstore100`, `pstore100`, `rmw100`, `ro100`, `uinc100`, `vinc100`)
-   - **ADCIRC Stormtide Locations*** 
-   - Source: https://www.nature.com/articles/s41558-021-01272-7
+1. TC Dataset from Gori et al. 2022 (https://www.nature.com/articles/s41558-021-01272-7)
+   - **Track files** (MAT-files) containing the output from the MIT TC Model: TC tracks with variables `lat100`, `lon100`, `vstore100`, `pstore100`, `rmw100`, `ro100`, `uinc100`, `vinc100`
+   - **ADCIRC Stormtide Locations***
 2. SFINCS model domain or study area (polygon)
    
 ---
