@@ -1,7 +1,7 @@
 ### Coastal Water Levels
 
 The scripts in this folder are used for processing coastal water level datasets including:
-1. ADCIRC modeled storm tides from the TC Dataset Gori et al (2022) as MAT-files
+1. ADCIRC modeled storm tides (Gori et al. 2022) as MAT-files
 2. RENCI ADCIRC Reanalysis V2 as a CSV-file.
 - This data was downloaded from https://renci.github.io/edsreanalysisdoc/. We downloaded the reanalysis at the same x,y locations as the storm tide gages.
 
