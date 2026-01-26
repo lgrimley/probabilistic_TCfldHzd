@@ -1,12 +1,12 @@
 # Probablistic TC Flood Hazards
 
-This repository contains the codes developed for probabilistic simulations of TC flooding leverage multiple physics-based models. The engine of this workflow is SFINCS which is an open-access 2D hydrodynamic model (link). These codes are configured for the study Grimley, Sebastian, and Gori (2026). The codes and workflows can be adapted for probablistic modeling and efficient large-scale data analysis. 
+This repository contains the codes developed for probabilistic simulations of TC flooding leveraging multiple physics-based models. The engine of this framework is SFINCS, an open-access 2D hydrodynamic model (https://sfincs.readthedocs.io/en/latest/index.html). When possible, we focused on using open-source python packages including HydroMT (https://deltares.github.io/hydromt/latest/index.html). The codes used to process inputs and outputs from the SFINCS model can be adapted for other case studies. The codes in this repository are configured for a case study in North and South Carolina (Grimley et al. 2026) using a TC Dataset from Gori et al. 2022. 
 
 Key workflows:
-1. Processing a TC Dataset forom Gori et al. (2022)
-2. Setting up the SFINCS model inputs
+1. Processing TC Dataset (Gori et al. 2022)
+2. Setting up the SFINCS model runs
 3. Submitting thousands of SFINCS model runs in parallel
-4. Post-processing of the SFINCS outputs
+4. Post-processing SFINCS outputs
 
 ---
 
@@ -48,22 +48,25 @@ Key workflows:
 
 ---
 
-## Data Availability
+## Data and Model Availability
 
-Note: input datasets are not included in this repository.
+Note: input datasets are not included in this repository but can be requested or accessed using the information below:
 
 **TC Dataset**  
-- Source: Gori et al. 2022
-- Data included (as MATLAB files):
+- Source: Gori et al. 2022 (https://www.nature.com/articles/s41558-021-01272-7)
+- Data as MATLAB files:
   - TC Tracks (MIT Model) 
   - Storm Tide (ADCIRC Model)
   - Rainfall Fields (TCR Model)
   - Wind Fields (CLE15 Model)
 
 - **SFINCS Model**
-- Available for download: Grimley, L., A. Sebastian (2025). Topobathymetric Digital Elevation Models (DEM) for Flood Modeling in the Carolinas [Version 2]. DesignSafe-CI. https://doi.org/10.17603/ds2-mzc8-s589
+- Software: https://sfincs.readthedocs.io/en/latest/index.html
+- North and South Carolina Model
+  - Grimley, L., A. Sebastian (2025). Topobathymetric Digital Elevation Models (DEM) for Flood Modeling in the Carolinas [Version 2]. DesignSafe-CI. https://doi.org/10.17603/ds2-mzc8-s589
+  - https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2023WR036727
 
-- **SFINCS Model Outputs**
+- **SFINCS Outputs**
 - Available to download: Grimley, L., A. Sebastian, A. Gori (2025). Historic and Future Probabilistic Tropical Cyclone Flood Hazards for the Carolinas. DesignSafe-CI. https://doi.org/10.17603/ds2-kbhj-k266
 
 ---
