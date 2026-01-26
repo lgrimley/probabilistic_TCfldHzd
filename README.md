@@ -1,9 +1,13 @@
 # Probablistic TC Flood Hazards
 
-1. Process TC Dataset (Gori et al. 2022)
-2. Setup SFINCS models 
-3. Simulate thousands of SFINCS models
-4. Post-process SFINCS outputs
+This repository contains the codes developed for probabilistic simulations of TC flooding leverage multiple physics-based models. The engine of this workflow is SFINCS which is an open-access 2D hydrodynamic model (link). These codes are configured for the study Grimley, Sebastian, and Gori (2026). The codes and workflows can be adapted for probablistic modeling and efficient large-scale data analysis. 
+
+Key workflows:
+1. Processing a TC Dataset forom Gori et al. (2022)
+2. Setting up the SFINCS model inputs
+3. Submitting thousands of SFINCS model runs in parallel
+4. Post-processing of the SFINCS outputs
+
 ---
 
 ## Repository Structure
