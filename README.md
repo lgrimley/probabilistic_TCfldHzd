@@ -53,16 +53,16 @@ Key workflows:
 Note: input datasets are not included in this repository but can be requested or accessed using the information below:
 
 **TC Dataset**  
-Source: Gori et al. 2022 (https://www.nature.com/articles/s41558-021-01272-7)
-Data as MATLAB files:
+- Source: Gori et al. 2022 (https://www.nature.com/articles/s41558-021-01272-7)
+- Data as MATLAB files:
   - TC Tracks (MIT Model) 
   - Storm Tide (ADCIRC Model)
   - Rainfall Fields (TCR Model)
   - Wind Fields (CLE15 Model)
 
 **SFINCS Model**
-Software: https://sfincs.readthedocs.io/en/latest/index.html
-North and South Carolina Model
+- Software: https://sfincs.readthedocs.io/en/latest/index.html
+- North and South Carolina Model
   - Grimley, L., A. Sebastian (2025). Topobathymetric Digital Elevation Models (DEM) for Flood Modeling in the Carolinas [Version 2]. DesignSafe-CI. https://doi.org/10.17603/ds2-mzc8-s589
   - https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2023WR036727
 
