@@ -1,15 +1,9 @@
 # Synthetic TC Wind Fields
 
-Description
-
-Data Requirements:
-
----
-### Workflow
-- Get a list of TC IDs to processes using **wind/select_TCs_by_buffer.m** or the scripts in **tracks/tracks_select_by_polygon.ipynb**
-- Apply wind model (**CLE15_model** folder) to generate wind fields for the select TC IDs using **wind/CLE15_model/getmaxwind_county_SynStorms_grid_LG.m**. 
-- Reformat the gridded wind fields for application to SFINCS models using **wind/wind_process_grids.py**
----
-
-
+This codes in this folder are used for generating wind fields for TC tracks that are formatted for reading into SFINCS.
+1. Select the TC IDs from TC Track files
+   - Option by point: `wind/select_TCs_by_buffer.m`
+   - Option by area: `tracks/tracks_select_by_polygon.ipynb`
+3. Generate wind fields for selected TC IDs using the CLE15 Model (`CLE15_model`)
+4. Reformat the wind fields for SFINCS (`wind/wind_process_grids.py`)
 
