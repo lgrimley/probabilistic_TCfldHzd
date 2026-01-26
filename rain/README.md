@@ -40,6 +40,7 @@ FOR each GCM
         Write clipped rainfall to NetCDF
     END
 END
+```
 
 2. `02_rain_process_grids.py`
 - Overview: Converts gridded TCR rainfall NetCDF files from 2-hr resolution to hourly resolution and aligns rainfall time coordinates with storm track datetimes. Outputs are written as hourly NetCDF files suitable for use as rainfall forcing in SFINCS.
