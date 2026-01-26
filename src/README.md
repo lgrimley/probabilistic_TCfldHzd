@@ -1,5 +1,6 @@
-Workflow of `src.py`
-```FOR each tropical cyclone
+Workflow included in `src.py`:
+```
+FOR each tropical cyclone
     Load track and define simulation time window
     Load storm tide, reanalysis, wind, and rainfall data
     Align all datasets temporally
@@ -9,4 +10,5 @@ Workflow of `src.py`
     Extract maximum hazard metrics
     Compute flood depth
     Attribute flooding to coastal, runoff, or compound processes
-END```
+END
+```
