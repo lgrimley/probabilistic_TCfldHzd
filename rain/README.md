@@ -6,18 +6,6 @@
 - Input: 2-hr TCR MAT-files from Gori et al. 2022
 - Output: 2-hr TCR rainfall NetCDF files on a static grid
 
-2. `02_rain_process_grids.py`
-- Overview: Converts gridded TCR rainfall NetCDF files from 2-hr resolution to hourly resolution and aligns rainfall time coordinates with storm track datetimes. Outputs are written as hourly NetCDF files suitable for use as rainfall forcing in SFINCS.
-- Input: 2-hr TCR rainfall NetCDF files on a static grid
-- Output: 1-hr TCR rainfall NetCDF files on a static grid w/ datetime assigned
-
-3. `diagnosticCheck_plotTCRoutput.m` plotting TCR rainfall
-
-4. `rainfallStats.py`
-- Overview: This script computes storm-level rainfall summary statistics and total precipitation grids from gridded TCR rainfall NetCDF files. The outputs are organized by storm selection category and include both tabular statistics and spatial NetCDF products. This information is used in downstream analysis to understand how TC characteristics are changing and relate to flooding.
-- Input: 1-hr TCR rainfall NetCDF files on a static grid w/ datetime assigned
-- Output: NetCDF files of rainfall metrics
-
 <!-- Pseudo-code -->
 
 ```text
@@ -52,3 +40,15 @@ FOR each GCM
         Write clipped rainfall to NetCDF
     END
 END
+
+2. `02_rain_process_grids.py`
+- Overview: Converts gridded TCR rainfall NetCDF files from 2-hr resolution to hourly resolution and aligns rainfall time coordinates with storm track datetimes. Outputs are written as hourly NetCDF files suitable for use as rainfall forcing in SFINCS.
+- Input: 2-hr TCR rainfall NetCDF files on a static grid
+- Output: 1-hr TCR rainfall NetCDF files on a static grid w/ datetime assigned
+
+3. `diagnosticCheck_plotTCRoutput.m` plotting TCR rainfall
+
+4. `rainfallStats.py`
+- Overview: This script computes storm-level rainfall summary statistics and total precipitation grids from gridded TCR rainfall NetCDF files. The outputs are organized by storm selection category and include both tabular statistics and spatial NetCDF products. This information is used in downstream analysis to understand how TC characteristics are changing and relate to flooding.
+- Input: 1-hr TCR rainfall NetCDF files on a static grid w/ datetime assigned
+- Output: NetCDF files of rainfall metrics
