@@ -1,113 +1,236 @@
+# ==========================================================================
+# Tropical Cyclone Flood Hazard Processing Framework
+#
+# Purpose:
+#   End-to-end processing of tropical cyclone (TC) flood hazards using
+#   SFINCS model outputs, ADCIRC storm tide data, atmospheric forcing
+#   (wind and precipitation), and reanalysis datasets.
+#
+# Key Capabilities:
+#   - Load and align TC track, storm tide, wind, and rainfall data
+#   - Harmonize temporal coverage across multiple forcing sources
+#   - Apply tide timing offsets between ADCIRC storm tide and reanalysis
+#   - Merge storm tide and shifted reanalysis water levels
+#   - Extract maximum flood hazard metrics from SFINCS outputs
+#   - Attribute flooding to coastal, runoff, or compound processes
+#
+# Core Outputs:
+#   - Maximum water surface elevation (zsmax)
+#   - Maximum flood depth (hmax)
+#   - Maximum velocity (vmax)
+#   - Time of inundation (tmax)
+#   - Process-attributed flood extent and classification
+#
+# Intended Use:
+#   - Event-scale flood hazard attribution
+#   - Compound flooding analysis
+#   - Synthetic and reanalysis-based TC simulations
+#
+# Notes:
+#   - Designed for batch processing of TC events
+#   - Assumes consistent spatial grids across SFINCS scenarios
+#   - Uses Hydromt + SFINCS conventions for I/O
+#
+# ==========================================================================
+
+# Standard library imports
 import os
 import datetime
-import numpy as np
-import hydromt
-import pandas as pd
-import geopandas as gpd
-import xarray as xr
-import scipy.io as sio
-from shapely.geometry import LineString
+import time
 from pathlib import Path
 from typing import Self
-from hydromt_sfincs import SfincsModel
-from src.utils import process_tmax_in_hours, calculate_station_highTide_time
+
+# Scientific computing
+import numpy as np
+import pandas as pd
+import xarray as xr
+import scipy.io as sio
 from scipy import ndimage
-import time
+
+# Geospatial libraries
+import geopandas as gpd
+from shapely.geometry import LineString
+
+# Hydrologic / coastal modeling
+import hydromt
+from hydromt_sfincs import SfincsModel
+
+# Project utilities
+from src.utils import process_tmax_in_hours, calculate_station_highTide_time
+
 
 def get_binary_flood_extents(da_classified: xr.DataArray) -> xr.Dataset:
-    # Compound
+    """
+    Convert classified flood attribution codes into binary flood extents
+    for different flooding scenarios.
+
+    Classification codes:
+        0 = no flooding
+        1 = coastal
+        2 = coastal + compound
+        3 = runoff
+        4 = runoff + compound
+
+    Returns:
+        Dataset with binary flood extent maps for:
+        - compound
+        - runoff
+        - coastal
+        - total
+    """
+
+    # Compound flooding (coastal + runoff interaction)
     mask = ((da_classified == 2) | (da_classified == 4))
     compound_extent = xr.where(da_classified.where(mask), x=1, y=0)
     compound_extent.name = 'flood_extent'
 
-    # Runoff
+    # Runoff-driven flooding
     mask = (da_classified == 3)
     runoff_extent = xr.where(da_classified.where(mask), x=1, y=0)
     runoff_extent.name = 'flood_extent'
 
-    # Coastal
+    # Coastal-driven flooding
     mask = (da_classified == 1)
     coastal_extent = xr.where(da_classified.where(mask), x=1, y=0)
     coastal_extent.name = 'flood_extent'
 
-    # Combined
-    mask = (da_classified == 1)
+    # Total flooding extent (any process)
     total_extent = xr.where(da_classified > 0, x=1, y=0)
     total_extent.name = 'flood_extent'
 
-    da_out = xr.concat(objs=[compound_extent, runoff_extent, coastal_extent, total_extent], dim='scenario')
-    da_out['scenario'] = xr.IndexVariable(dims='scenario', data=['compound', 'runoff','coastal', 'total'])
-    da_out = da_out.astype(int)
+    # Combine into a single dataset with scenario dimension
+    da_out = xr.concat(
+        objs=[compound_extent, runoff_extent, coastal_extent, total_extent],
+        dim='scenario'
+    )
+    da_out['scenario'] = xr.IndexVariable(
+        dims='scenario',
+        data=['compound', 'runoff', 'coastal', 'total']
+    )
 
-    return da_out
+    return da_out.astype(int)
+
 
 
 def process_bc_inputs(input_dir: Path=None) -> [xr.DataArray, xr.DataArray]:
+    """
+    Process gridded precipitation and wind boundary-condition inputs.
+
+    Outputs:
+        - Precipitation statistics: total, mean rate, max rate
+        - Wind statistics: mean windspeed, max windspeed
+    """
+
+    # ------------------
+    # Precipitation
+    # ------------------
     bc = 'precip_2d'
-    data = xr.open_dataset(os.path.join(input_dir, f'{bc}.nc'))
-    data = data.astype('float32')
+    data = xr.open_dataset(os.path.join(input_dir, f'{bc}.nc')).astype('float32')
+
     total = data.sum(dim='time')['Precipitation']
     mean_rate = data.mean(dim='time')['Precipitation']
     max_rate = data.max(dim='time')['Precipitation']
-    da_ls = [total, mean_rate, max_rate]
-    da_precip = xr.concat(objs=da_ls, dim='name')
+
+    da_precip = xr.concat([total, mean_rate, max_rate], dim='name')
     da_precip['name'] = xr.IndexVariable(dims='name', data=['total', 'mean', 'max'])
 
+    # ------------------
+    # Wind
+    # ------------------
     bc = 'wind_2d'
-    data = xr.open_dataset(os.path.join(input_dir, f'{bc}.nc'))
-    data = data.astype('float32')
-    windspeed = np.sqrt((data['eastward_wind']**2) + (data['northward_wind']**2))
+    data = xr.open_dataset(os.path.join(input_dir, f'{bc}.nc')).astype('float32')
+
+    # Compute wind speed from components
+    windspeed = np.sqrt(data['eastward_wind']**2 + data['northward_wind']**2)
     windspeed.name = 'windspeed'
+
     mean_rate = windspeed.mean(dim='time')
     max_rate = windspeed.max(dim='time')
-    da_ls = [mean_rate, max_rate]
-    da_wind = xr.concat(objs=da_ls, dim='name')
+
+    da_wind = xr.concat([mean_rate, max_rate], dim='name')
     da_wind['name'] = xr.IndexVariable(dims='name', data=['mean', 'max'])
 
     return [da_precip, da_wind]
 
 
+
 def resized_gridded_output(ds: xr.Dataset, elevation_da: xr.DataArray, variables=None) -> xr.Dataset:
-        if variables is None:
-            variables = ['zsmax']
+    """
+    Resize gridded outputs to match a target elevation grid.
 
-        start_time = time.time()
-        target_shape = elevation_da.shape
-        scenarios = ds.scenario.values
+    Uses bilinear interpolation (order=1) and preserves scenario dimension.
+    """
 
-        rdas_dict = {}
-        for var in variables:
-            out_varname = f'resized_{var}'
-            rdas = []
-            for scen in scenarios:
-                da = ds.sel(scenario=scen)[var]
-                scaling_factors = [target_shape[i] / da.shape[i] for i in range(len(da.shape))]
-                ra = ndimage.zoom(input=da, zoom=scaling_factors, order=1,
-                                             output='float32', mode='grid-constant',
-                                             cval=np.nan, prefilter=False, grid_mode=True)
-                rda = xr.DataArray(ra,
-                                   dims=da.dims,
-                                   coords={dim: np.linspace(da.coords[dim].min(), da.coords[dim].max(),
-                                                               target_shape[i]) for i, dim in enumerate(da.dims)},
-                                   attrs=da.attrs)
-                rda['spatial_ref'] = da['spatial_ref']
-                rdas.append(rda)
+    if variables is None:
+        variables = ['zsmax']
 
-            x = xr.concat(objs=rdas, dim='scenario')
-            x['scenario'] = xr.IndexVariable(dims='scenario', data=scenarios)
-            rdas_dict[out_varname] = x
+    start_time = time.time()
+    target_shape = elevation_da.shape
+    scenarios = ds.scenario.values
 
-        ds_resized = xr.Dataset(rdas_dict)
-        ds_resized.attrs = ds.attrs
+    rdas_dict = {}
 
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print(f"Elapsed time: {elapsed_time} seconds")
+    for var in variables:
+        out_varname = f'resized_{var}'
+        rdas = []
 
-        return ds_resized
+        for scen in scenarios:
+            da = ds.sel(scenario=scen)[var]
+
+            # Compute scaling factors for each dimension
+            scaling_factors = [
+                target_shape[i] / da.shape[i] for i in range(len(da.shape))
+            ]
+
+            # Resample grid
+            ra = ndimage.zoom(
+                input=da,
+                zoom=scaling_factors,
+                order=1,
+                output='float32',
+                mode='grid-constant',
+                cval=np.nan,
+                prefilter=False,
+                grid_mode=True
+            )
+
+            # Rebuild DataArray with updated coordinates
+            rda = xr.DataArray(
+                ra,
+                dims=da.dims,
+                coords={
+                    dim: np.linspace(
+                        da.coords[dim].min(),
+                        da.coords[dim].max(),
+                        target_shape[i]
+                    )
+                    for i, dim in enumerate(da.dims)
+                },
+                attrs=da.attrs
+            )
+
+            rda['spatial_ref'] = da['spatial_ref']
+            rdas.append(rda)
+
+        x = xr.concat(rdas, dim='scenario')
+        x['scenario'] = xr.IndexVariable(dims='scenario', data=scenarios)
+        rdas_dict[out_varname] = x
+
+    ds_resized = xr.Dataset(rdas_dict)
+    ds_resized.attrs = ds.attrs
+
+    print(f"Elapsed time: {time.time() - start_time} seconds")
+
+    return ds_resized
+
 
 
 class DataPaths:
+    """
+    Container class for managing file paths associated with TC simulations.
+    """
+
+    # Static reference files
     adcirc_reanalysis_locs_filepath = Path(
         r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\02_DATA\RENCI_EDSReanalysis\full_data_meta.csv')
     adcirc_stormTide_locs_filepath = Path(
@@ -133,6 +256,14 @@ class DataPaths:
 
 
 class SyntheticTrack:
+    """
+    Handles all TC-specific data loading, alignment, and preprocessing:
+    - Track geometry
+    - Storm tide
+    - Reanalysis tides
+    - Wind and precipitation forcing
+    """
+    
     def __init__(
             self: Self,
             DataPaths,
@@ -408,6 +539,15 @@ class SyntheticTrack:
 
 
 class TCFloodHazard:
+    """
+    Post-process SFINCS outputs to compute flood hazards and attribution.
+
+    Responsibilities:
+        - Load SFINCS results for compound/runoff/coastal scenarios
+        - Compute maximum hazard metrics
+        - Calculate flood depth
+        - Attribute flooding processes
+    """
     def __init__(
             self: Self,
             tc_root: Path = None,
@@ -552,7 +692,7 @@ class TCFloodHazard:
                          'zsmax_attr': da_classified})
         return ds
 
-
+# Data paths for NCEP reanalysis-driven simulations
 NCEP_DataPaths = DataPaths(
     root=Path(r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\02_DATA\NCEP_Reanalysis'),
     tracks_filepath=Path(r'.\tracks\UScoast6_AL_ncep_reanal_roEst1rmEst1_trk100.mat'),
@@ -562,7 +702,7 @@ NCEP_DataPaths = DataPaths(
     adcirc_reanalysis_data_filepath = Path(
         r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\02_DATA\RENCI_EDSReanalysis\EDSReanalysis_V2_1992_2022.nc')
 )
-
+# Data paths for CMIP6 CanESM SSP585 simulations
 cansem_ssp585_DataPaths = DataPaths(
     root=Path(r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\02_DATA\CMIP6_585'),
     tracks_filepath=Path(r'.\tracks\UScoast6_AL_canesm_ssp585cal_roEst1rmEst1_trk100.mat'),
