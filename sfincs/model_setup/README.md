@@ -6,6 +6,7 @@
 - `add_SLR_to_stormtide.py` adds a given sea level rise amount (m) to an existing SFINCS water level file (.bnd and .bzs)
 - `create_obsfile.py` adding x,y locations to the sfincs.obs file that SFINCS writes time series data in the sfincs_his.nc output
   
-## Write SFINCS input files for individual TCs
+## Setup SFINCS inputs for Synthetic TCs
 - `create_BC_dataCatalog.py` Creating a data catalog and model inputs for the synthetic TCs
 - `write_sfincs_track_inputs.py` This script generates SFINCS boundary condition files for a single synthetic TC track. It run from the command line with arguments specifying the TC index and output directory.
+- `run_writeScript.py` This script batch-generates SFINCS boundary condition inputs for a selected list of synthetic TCs. For each storm, it calls an external Python script that writes SFINCS (`write_sfincs_track_inputs.py`) forcing files, manages output directories, and logs stdout to a file.
