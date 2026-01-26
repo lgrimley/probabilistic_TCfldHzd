@@ -1,6 +1,6 @@
 # Probablistic TC Flood Hazards
 
-This repository contains the codes developed for probabilistic simulations of TC flooding leveraging multiple physics-based models. The engine of this framework is SFINCS, an open-access 2D hydrodynamic model (https://sfincs.readthedocs.io/en/latest/index.html). When possible, we focused on using open-source python packages including HydroMT (https://deltares.github.io/hydromt/latest/index.html). The codes used to process inputs and outputs from the SFINCS model can be adapted for other case studies. The codes in this repository are configured for a case study in North and South Carolina (Grimley et al. 2026) using a TC Dataset from Gori et al. 2022. 
+This repository contains the codes developed for probabilistic simulations of TC flooding leveraging multiple physics-based models. The engine of this framework is SFINCS, an open-access 2D hydrodynamic model (https://sfincs.readthedocs.io/en/latest/index.html). When possible, we focused on using open-source python packages including HydroMT (https://deltares.github.io/hydromt/latest/index.html). The codes used to process inputs and outputs from the SFINCS model can be adapted for other case studies. The codes in this repository are configured for a case study in North and South Carolina (Grimley et al. 2026). 
 
 Key workflows:
 1. Processing TC Dataset (Gori et al. 2022)
