@@ -5,7 +5,7 @@ The scripts in this folder are used for analyzing the TC track MAT-files generat
 3. Subsetting TC tracks by weighted sampling from the TC intensity distriubtion (described in `gcm_bias_correction` folder)
 
 ## Inputs
-1. TC track MAT-files with variables `lat100`, `lon100`, `vstore100`, `pstore100`, `rmw100`, `ro100`, `uinc100`, `vinc100` and are from Gori et al. 2022 (https://www.nature.com/articles/s41558-021-01272-7)
+1. TC track MAT-files with variables `lat100`, `lon100`, `vstore100`, `pstore100`, `rmw100`, `ro100`, `uinc100`, `vinc100`
 2. Geospatial data for selecting tracks such as points (i.e., ADCIRC Stormtide Locations) or polygons (i.e., SFINCS model domain, study area)
    
 ---
