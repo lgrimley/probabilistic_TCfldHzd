@@ -1,7 +1,5 @@
 import os
 import pandas as pd
-import hydromt_sfincs.utils
-from hydromt_sfincs import SfincsModel, utils
 import xarray as xr
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -16,11 +14,13 @@ tc_ids = [1218, 2041, 5701, 4762, 2818]
 
 station_name = 'Tar_0020'
 #'Neuse_0015'
-    #'WhiteOak_0004'
-    #'New_0011'
+#'WhiteOak_0004'
+#'New_0011'
 #'CapeFear_0007'
 #'Waccamaw_0010'
-#'CapeFear_0013'  #['NCEM_30015','USGS_2135200'
+#'CapeFear_0013'
+# 'NCEM_30015'
+# 'USGS_2135200'
 fig, axes = plt.subplots(nrows=5, ncols=1, figsize=(7, 10), sharex=False, sharey=True)
 
 for i, tc_id in enumerate(tc_ids):

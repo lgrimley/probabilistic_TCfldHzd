@@ -1,6 +1,4 @@
 """
-Script Name: apply_slr_to_sfincs_tides.py
-
 Description:
     This script applies a uniform sea-level rise (SLR) offset to an existing
     SFINCS tidal boundary condition file (.bzs). The modified water levels are

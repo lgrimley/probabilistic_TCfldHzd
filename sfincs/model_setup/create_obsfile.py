@@ -1,6 +1,4 @@
 """
-Script Name: build_sfincs_observation_locations.py
-
 Description:
     This script generates a combined SFINCS observation location file (.obs)
     by merging coastal gauge locations with river gauge locations. The resulting

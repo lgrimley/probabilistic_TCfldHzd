@@ -1,12 +1,12 @@
 **The scripts in this folder are used for two workflows:**
 
 ## 1. Build/update the base SFINCS model:
-- `build_sfincs_ENC_200m_sbg5m_Ch3.py` build model files
+- `build_sfincs_baseMod_200m_sbg5m.py` build model files
 - `run_build_sfincs_py.sh` bash script to submit the python script to HPC
 - `add_SLR_to_stormtide.py` adds a given sea level rise amount (m) to an existing SFINCS water level file (.bnd and .bzs)
 - `create_obsfile.py` adding x,y locations to the sfincs.obs file that SFINCS writes time series data in the sfincs_his.nc output
   
 ## 2. Setup SFINCS inputs for Synthetic TCs
-- `create_BC_dataCatalog.py` Creating a data catalog and model inputs for the synthetic TCs
+- `create_bc_dataCatalog.py` Creating a data catalog and model inputs for the synthetic TCs
 - `write_sfincs_track_inputs.py` This script generates SFINCS boundary condition files for a single synthetic TC track. It run from the command line with arguments specifying the TC index and output directory.
 - `run_writeScript.py` This script batch-generates SFINCS boundary condition inputs for a selected list of synthetic TCs. For each storm, it calls an external Python script that writes SFINCS (`write_sfincs_track_inputs.py`) forcing files, manages output directories, and logs stdout to a file.
