@@ -1,6 +1,5 @@
 """
 ================================================================================
-Script Name: process_synthetic_TC_rain_wind.py
 Description:
     This script processes synthetic tropical cyclone (TC) rainfall and wind data
     for the Carolinas region under a given climate scenario. It performs the 
@@ -23,7 +22,6 @@ Outputs:
     - Basin raster masks for precipitation and wind grids
 
 Dependencies:
-    - Python packages: pandas, pathlib, os, sys, hydromt
     - Local package: src.utils (TCR_precip_stats2netcdf, TC_windspd_stats2netcdf)
 ================================================================================
 """

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10" project-jdk-type="Python SDK" />
+  <component name="Black">
+    <option name="sdkName" value="hydromt-sfincs-v1.1.0 (2)" />
+  </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="C:\Users\lelise\AppData\Local\miniforge3\envs\hydromt_sfincs_v110" project-jdk-type="Python SDK" />
 </project>

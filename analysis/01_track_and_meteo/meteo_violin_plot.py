@@ -1,3 +1,33 @@
+"""
+================================================================================
+Script Overview: TC Statistics and Violin Plots
+
+Description:
+------------
+This script:
+1. Loads and processes data:
+    - Loads historical (NCEP) and projected (CanESM) tropical cyclone (TC) data
+    - Merges meteorological and track-based variables at landfall
+    - Expands the data for the projected future using storm weights (bias-correction)
+2. Computes descriptive statistics by basin and domain
+3. Generates violin plots comparing Historic vs Projected periods for:
+   - Rainfall metrics
+   - Wind and storm tide metrics
+   - Track characteristics
+   - Manuscript-ready summary figures
+
+All plots show distributions by basin and domain with percentile whiskers.
+
+IMPORTANT:
+----------
+This script assumes:
+- Local file paths are valid
+- Required CSVs and shapefiles exist
+- Hydromt catalogs are properly configured
+
+================================================================================
+"""
+
 import os
 import pandas as pd
 import sys
@@ -8,112 +38,189 @@ import seaborn as sns
 import numpy as np
 import hydromt
 from scipy.stats import gaussian_kde
-mpl.use('TkAgg')  # Use the TkAgg backend (commonly works well)
+mpl.use('TkAgg')
 plt.ion()
 
-# Read in the data catalog to get the model and basin geom
+# ==========================================
+# Set up
+# ==========================================
 data_catalog_yml = r'Z:\Data-Expansion\users\lelise\data\data_catalog_SFINCS_Carolinas.yml'
 yml_base = r'Z:\Data-Expansion\users\lelise\data\data_catalog_BASE_Carolinas.yml'
 cat = hydromt.DataCatalog(data_libs=[data_catalog_yml, yml_base])
-# Read in the data catalog to get the model and basin geom
-basins = cat.get_geodataframe(data_like=r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\04_MODEL_OUTPUTS\masks\basins_shp\huc6_basins.shp')
+
+# Load basin shapefile and reproject to UTM Zone 17N
+basins = cat.get_geodataframe(
+    data_like=r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\04_MODEL_OUTPUTS\masks\basins_shp\huc6_basins.shp'
+)
 basins = basins.to_crs(epsg=32617)
 
-
-os.chdir(r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\05_ANALYSIS\01_return_period_tables')
+os.chdir(
+    r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\05_ANALYSIS\01_return_period_tables'
+)
 outdir = r'..\02_storm_set_stats'
 
-
+# =========================================================
+# Function: Expand projected data using storm occurrence weights
+# =========================================================
 def expand_df_by_weights(df, scenarios, groupby_col=None):
+    """
+    Expands projected storm metrics so that each basin has the same
+    effective number of storms as the historical record.
+
+    Expansion is performed by repeating values proportional to storm weights.
+    """
     for group, group_data in df.groupby(groupby_col):
-        n_storms = 1543
+        n_storms = 1543  # Target number of storms
         num_repeats = (group_data['weight'] * n_storms).round().astype(int)
+
         for scenario in scenarios:
             expanded_data = np.repeat(group_data[scenario], num_repeats)
             expanded_data = pd.DataFrame(expanded_data)
 
+            # Trim or resample to exactly n_storms
             if len(expanded_data) > n_storms:
                 expanded_df = expanded_data.iloc[:n_storms]
             elif len(expanded_data) < n_storms:
-                # If it's smaller, repeat some rows to match the total number of points
-                expanded_data = expanded_data.sample(n=n_storms, replace=True, random_state=42)
+                expanded_data = expanded_data.sample(
+                    n=n_storms, replace=True, random_state=42
+                )
 
+            # Replace original values with expanded values
             df.loc[(df[groupby_col] == group), scenario] = expanded_data.values
 
     return df
 
+# ============================
+# HISTORIC TC DATA
+# ============================
+# Subset of variables of interest for TC statistics
+all_vars = [
+    'maxWS', 'meanMaxWS', 'meanWS', 'meanWSthresh', 'meanDirection',
+    'stormtide', 'CumPrecipKM3', 'MeanTotPrecipMM', 'MaxTotPrecipMM',
+    'maxRR', 'meanRR', 'AvgmaxRR', 'meanRRthresh'
+]
 
-# Load the historical TC data
-all_vars = ['maxWS', 'meanMaxWS', 'meanWS', 'meanWSthresh', 'meanDirection','stormtide',
-'CumPrecipKM3', 'MeanTotPrecipMM', 'MaxTotPrecipMM', 'maxRR', 'meanRR', 'AvgmaxRR',
-       'meanRRthresh']
-
-
+# Concatenate all historical NCEP CSVs
 ncep_csvfiles = [f for f in os.listdir() if f.endswith('ncep.csv')]
-histdf = pd.concat((pd.read_csv(file, index_col=0) for file in ncep_csvfiles), ignore_index=False)
+histdf = pd.concat(
+    (pd.read_csv(file, index_col=0) for file in ncep_csvfiles),
+    ignore_index=False
+)
+
+# Add metadata
 histdf['tc_id'] = histdf.index
 histdf['Period'] = 'Historic'
-select_columns = ['basin','tc_id','Period'] + all_vars
+select_columns = ['basin', 'tc_id', 'Period'] + all_vars
 histdf = histdf[select_columns]
 
-# Track info at landfall
-track_table_filepath = r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\02_DATA\NCEP_Reanalysis\tracks\ncep_landfall_track_info.csv'
+# Add landfall track information
+track_table_filepath = (
+    r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs'
+    r'\02_DATA\NCEP_Reanalysis\tracks\ncep_landfall_track_info.csv'
+)
 track_df = pd.read_csv(track_table_filepath, index_col=0)
 track_df.set_index('tc_id', inplace=True, drop=True)
-track_df_hist = track_df[['rmw100','pstore100','speed100','vstore100']]
+track_df_hist = track_df[['rmw100', 'pstore100', 'speed100', 'vstore100']]
 
 histdf = histdf.merge(track_df_hist, left_index=True, right_index=True, how='left')
 
-# Load the projected/future TC data
+# ============================
+# PROJECTED FUTURE TC DATA
+# ============================
 canesm_csvfiles = [f for f in os.listdir() if f.endswith('canesm.csv')]
-futdf = pd.concat((pd.read_csv(file, index_col=0) for file in canesm_csvfiles), ignore_index=False)
+futdf = pd.concat(
+    (pd.read_csv(file, index_col=0) for file in canesm_csvfiles),
+    ignore_index=False
+)
+
+# Add metadata
 futdf['tc_id'] = futdf.index
 futdf['Period'] = 'Projected'
-select_columns = ['basin','tc_id','Period', 'weight'] + all_vars
+select_columns = ['basin', 'tc_id', 'Period', 'weight'] + all_vars
 futdf = futdf[select_columns]
 
-# Track info at landfall
-track_table_filepath = r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs\02_DATA\CMIP6_585\tracks\canesm_landfall_track_info.csv'
+
+# Add landfall track information
+track_table_filepath = (
+    r'Z:\Data-Expansion\users\lelise\projects\Carolinas_SFINCS\Chapter3_SyntheticTCs'
+    r'\02_DATA\CMIP6_585\tracks\canesm_landfall_track_info.csv'
+)
 track_df = pd.read_csv(track_table_filepath, index_col=0)
 track_df.set_index('tc_id', inplace=True, drop=True)
-track_df_fut = track_df[['rmw100','pstore100','speed100','vstore100']]
+track_df_fut = track_df[['rmw100', 'pstore100', 'speed100', 'vstore100']]
 
 futdf = futdf.merge(track_df_fut, left_index=True, right_index=True, how='left')
-futdf = expand_df_by_weights(df=futdf, scenarios=all_vars, groupby_col='basin')
 
+# Apply storm-weight expansion
+futdf = expand_df_by_weights(
+    df=futdf, scenarios=all_vars, groupby_col='basin'
+)
 
-# Create a table of stats
-remove = ['tc_id','Period', 'weight']
-hist_group = histdf.groupby('basin')[histdf.columns[~histdf.columns.isin(remove)]].describe(percentiles=[0.10, 0.25, 0.50, 0.75, 0.90, 0.95])
-hist_group =hist_group.T
+# =====================================
+# Create descriptive statistics tables
+# =====================================
+remove = ['tc_id', 'Period', 'weight']
 
-proj_group = futdf.groupby('basin')[futdf.columns[~futdf.columns.isin(remove)]].describe(percentiles=[0.10, 0.25, 0.50, 0.75, 0.90, 0.95])
+# Historical statistics
+hist_group = histdf.groupby('basin')[
+    histdf.columns[~histdf.columns.isin(remove)]
+].describe(percentiles=[0.10, 0.25, 0.50, 0.75, 0.90, 0.95])
+hist_group = hist_group.T
+
+# Projected statistics
+proj_group = futdf.groupby('basin')[
+    futdf.columns[~futdf.columns.isin(remove)]
+].describe(percentiles=[0.10, 0.25, 0.50, 0.75, 0.90, 0.95])
 proj_group = proj_group.T
 proj_group.index.name = 'basin'
 proj_group.columns = [f'{s}_Fut' for s in proj_group.columns]
 
-# Combine the hist and proj stats
-combined_stats = pd.concat(objs=[hist_group,proj_group], axis=1, ignore_index=False)
+# Combine historical and projected stats
+combined_stats = pd.concat(
+    objs=[hist_group, proj_group], axis=1, ignore_index=False
+)
 combined_stats.index.names = ['variable', 'stat']
 
-matching_cols = combined_stats.columns[combined_stats.columns.str.contains('Domain', case=False, regex=False)]
+# ==================================================
+# Compute domain-level differences and fractional change
+# ==================================================
+matching_cols = combined_stats.columns[
+    combined_stats.columns.str.contains('Domain', case=False, regex=False)
+]
 subset = combined_stats[matching_cols]
-subset[f'Diff'] = subset[f'Domain_Fut'] - subset['Domain']
-subset[f'FractionalChange'] = ((subset[f'Diff']) / subset['Domain'])
+subset['Diff'] = subset['Domain_Fut'] - subset['Domain']
+subset['FractionalChange'] = subset['Diff'] / subset['Domain']
 subset_domain = subset
-#subset.round(3).to_csv(rf'{outdir}\meteo_stormtide_histogramStats_Domain.csv')
 
+# ==================================================
+# Compute watershed-level differences and fractional change
+# ==================================================
 watersheds = ['CapeFear', 'LowerPeeDee', 'Neuse', 'OnslowBay', 'Pamlico']
-matching_cols = combined_stats.columns[~combined_stats.columns.str.contains('Domain', case=False, regex=False)]
+matching_cols = combined_stats.columns[
+    ~combined_stats.columns.str.contains('Domain', case=False, regex=False)
+]
 subset = combined_stats[matching_cols]
+
 for w in watersheds:
     subset[f'{w}_Diff'] = subset[f'{w}_Fut'] - subset[w]
-    subset[f'{w}_FractionalChange'] = ((subset[f'{w}_Diff']) / subset[w])
+    subset[f'{w}_FractionalChange'] = subset[f'{w}_Diff'] / subset[w]
+
 subset_watersheds = subset
 #subset.round(3).to_csv(rf'{outdir}\meteo_stormtide_histogramStats_watershed.csv')
 
-
-
+# ============================================================================
+# Plotting sections below:
+# 1) Rainfall violin plots
+# 2) Wind & storm tide violin plots
+# 3) Track variable violin plots
+# 4) Manuscript summary violin plots
+#
+# Each block:
+# - Combines Historic and Projected data
+# - Plots split violins by basin and domain
+# - Overlays 10th–90th percentile whiskers and median
+# - Saves high-resolution PNGs
+# ============================================================================
 
 scenarios = ['meanRRthresh','maxRR', 'AvgmaxRR', 'MaxTotPrecipMM', 'MeanTotPrecipMM','CumPrecipKM3']
 titles = ['Avg Rain Rate > 5 mm/hr','Peak Rain Rate','Avg Peak Rain Rate',

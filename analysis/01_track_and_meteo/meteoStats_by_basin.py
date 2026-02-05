@@ -7,10 +7,11 @@ for the Carolinas using TCR (Tropical Cyclone Rainfall) and NCEP reanalysis wind
 
 It performs the following steps:
 1. Loads a hydrometeorological data catalog and domain shapefiles.
-2. Loads precomputed TC rainfall and wind datasets.
+2. Loads precomputed TC rainfall and wind datasets (generated from meteoStats_to_netcdf.py)
 3. Applies a basin mask to extract values corresponding to individual basins.
 4. Computes basin-level statistics for rainfall:
    - Cumulative precipitation (km³)
+   - Total precipitation (mm)
    - Mean, max, and thresholded mean rain rates (mm/hr)
 5. Computes basin-level statistics for wind:
    - Maximum wind speed
