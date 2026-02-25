@@ -2,7 +2,7 @@
 The scripts in this folder are used for processing model output to analyze the TC track characteristics and meteorology (i.e., wind, rain)
 at the basin and domain scale. A general description of the scripts and the order in which to run them is described below:
 
-1. `meteoStats_to_netcdf.py`
+1. `create_dataaray_masks.py`
 This script processes the synthetic tropical cyclone (TC) rainfall and wind data to calculate storm-relevant information 
 (i.e., peak rain rate/wind speed, total precipitation, etc.) using functions in `src\utils.py`. 
 It generates NetCDF files combining all of these for each TC ID. These NetCDFs are used to calculate storm-intensity information
